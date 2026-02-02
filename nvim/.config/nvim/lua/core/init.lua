@@ -1,0 +1,5 @@
+require("core.globals").setup()
+require("core.keymaps").setup()
+require("core.options").setup()
+require("core.settings").setup()
+require("core.autocmds").setup()

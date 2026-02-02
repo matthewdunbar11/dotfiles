@@ -1,0 +1,16 @@
+[tools]
+usage = "latest"
+node = "22"
+sbt = "latest"
+java = "corretto-17"
+yarn = "latest"
+"npm:brighterscript" = "latest"
+rust = "latest"
+"npm:prettier" = "latest"
+"npm:aws-cdk" = "latest"
+stylua = "latest"
+"npm:opencode-ai" = "latest"
+"cargo:parqeye" = "latest"
+
+[settings]
+experimental = true
