@@ -1,17 +1,16 @@
 #!/usr/bin/env zsh
 
 if [[ -z $STOW_FOLDERS ]]; then
-  STOW_FOLDERS="aerospace,bin,ghostty,mise,nvim,opencode,tmux,zsh"
+  STOW_FOLDERS="aerospace,bin,ghostty,mise,nvim,tmux,zsh"
 fi
 
 if [[ -z $DOTFILES ]]; then
-  DOTFILES=$HOME/Code/.dotfiles
+  DOTFILES=$HOME/Code/dotfiles
 fi
 
-pushd $DOTFILES
+cd $DOTFILES
 for folder in $(echo $STOW_FOLDERS | sed "s/,/ /g"); do
   stow --delete $folder
   stow --target=$HOME $folder
 done
-popd
 

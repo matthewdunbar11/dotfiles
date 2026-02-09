@@ -105,7 +105,7 @@ source $ZSH/oh-my-zsh.sh
 alias ts="tmux-sessionizer"
 alias slack="TERM=xterm-256color slack-term"
 
-source .env
+source ~/.env
 
 export ARTIFACTORY_LW_USER=$ARTIFACTORY_LW_USER
 export ARTIFACTORY_USER=$ARTIFACTORY_LW_USER
@@ -114,8 +114,14 @@ export ARTIFACTORY_PASSWORD=$ARTIFACTORY_KEY
 export ARTIFACTORY_KEY=$ARTIFACTORY_KEY
 export ARTIFACTORY_LW_KEY=$ARTIFACTORY_KEY
 
+export SBT_OPTS="-Xmx4G -Xss4M"
 export TERM=tmux-256color
 export PATH="$HOME/.local/bin:$PATH"
 export PATH="$PATH:/Users/matthew.dunbar/Library/Application Support/Coursier/bin"
 
 [[ "$TERM_PROGRAM" == "kiro" ]] && . "$(kiro --locate-shell-integration-path zsh)"
+eval "$(mise activate zsh)"
+
+# Added by LM Studio CLI (lms)
+export PATH="$PATH:/Users/matthew.dunbar/.lmstudio/bin"
+# End of LM Studio CLI section

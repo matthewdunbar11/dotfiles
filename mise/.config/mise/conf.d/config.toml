@@ -11,6 +11,14 @@ rust = "latest"
 stylua = "latest"
 "npm:opencode-ai" = "latest"
 "cargo:parqeye" = "latest"
+neovim = "latest"
+"github:junegunn/fzf" = "latest"
+tmux = "latest"
+aws-cli = { version = "latest", symlink_bins = "true" }
+gh = "latest"
+lazygit = "latest"
+coursier = "latest"
+ripgrep = "latest"
 
 [settings]
 experimental = true

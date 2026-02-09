@@ -30,6 +30,9 @@ return {
 				grep_previewer = previewers.vim_buffer_vimgrep.new,
 				layout_strategy = "vertical",
 				prompt_prefix = "❯",
+				preview = {
+					treesitter = false,
+				},
 			},
 			extensions = {
 				fzf = {

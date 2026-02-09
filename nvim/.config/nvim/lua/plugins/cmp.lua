@@ -87,17 +87,17 @@ return {
 					--    https://github.com/L3MON4D3/LuaSnip?tab=readme-ov-file#keymaps
 				},
 
-				sources = cmp.config.sources({
-					{
-						name = "nvim_lsp",
-						entry_filter = function(entry)
-							return require("cmp.types").lsp.CompletionItemKind[entry:get_kind()] ~= "Text"
-						end,
-					},
-					{ name = "supermaven" },
-				}, {
-					{ name = "buffer", keyword_length = 5 },
-				}),
+			sources = cmp.config.sources({
+				{
+					name = "nvim_lsp",
+					entry_filter = function(entry)
+						return require("cmp.types").lsp.CompletionItemKind[entry:get_kind()] ~= "Text"
+					end,
+				},
+				{ name = "supermaven" },
+			}, {
+				{ name = "buffer", keyword_length = 5 },
+			}),
 				view = {
 					entries = "custom", -- can be "custom", "wildmenu" or "native"
 				},
