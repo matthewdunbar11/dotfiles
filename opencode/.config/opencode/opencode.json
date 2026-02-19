@@ -1,0 +1,59 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "provider": {
+    "bedrock": {
+      "npm": "@ai-sdk/openai-compatible",
+      "options": {
+        "baseURL": "http://localhost:10000/api/v1",
+        "apiKey": "password"
+      },
+      "models": {
+        "moonshotai.kimi-k2.5": {},
+        "moonshotai.kimi-k2-thinking": {}
+      }
+    },
+    "kiroGateway": {
+      "npm": "@ai-sdk/openai-compatible",
+      "options": {
+        "baseURL": "http://localhost:8000/v1",
+        "headers": {
+          "Authorization": "Bearer Password1"
+        }
+      },
+      "models": {
+        "claude-sonnet-4.5": {},
+        "claude-opus-4.6": {},
+        "claude-haiku-4.5": {},
+        "deepseek-3.2": {},
+        "minimax-m2.1": {},
+        "qwen3-coder-next": {}
+      }
+    },
+    "lmstudio": {
+      "npm": "@ai-sdk/openai-compatible",
+      "options": {
+        "baseURL": "http://localhost:1234/v1"
+      },
+      "models": {
+        "qwen/qwen3-coder-next": {},
+        "zai-org/glm-4.7-flash": {},
+        "mlx-community/Step-3.5-Flash-8bit": {}
+      }
+    }
+  },
+  "model": "qwen/qwen3-coder-next",
+  "command": {
+    "touch-stacks": {
+      "description": "Update CloudFormation stack files to trigger redeployment",
+      "template": "You are a basic file editor to help deploy cloudformation changes. Look at the current git status to see which files have changed in the repo's templates/ directory. Find corresponding files in the stacks/ directory that reference that template. Update the comment at the top of the stack file to reflect the most recent changes to the template file to trigger a redeploy."
+    },
+"commit": {
+      "description": "Create a git commit with auto-generated or provided message",
+      "template": "You are a git commit helper. Your task:\n\n1. First, ensure git config is set:\n - Check if user.name is set: git config user.name\n - Check if user.email is set: git config user.email\n - If either is missing, set them:\n - git config user.name \"Matthew Dunbar\"\n - git config user.email \"matthew.dunbar@lifeway.com\"\n\n2. Run these git commands to gather information:\n - git status (to see changed files)\n - git diff --stat (to see summary of changes)\n - git log -1 --format='%an %ae' (to verify you created the last commit)\n - git branch --show-current (to get current branch name)\n\n3. Determine the commit message:\n - IF the user provided a message (check $ARGUMENTS), use that\n - IF no message provided, analyze the git changes and write a short, concise summary (1-2 sentences) focusing on what changed and why\n\n4. Create the branch name:\n - Get current branch name from git branch --show-current\n - Prepend with 'md/' (e.g., 'md/feature-branch')\n\n5. Create the commit:\n - Ensure you're on the correct branch\n - Stage all changes: git add .\n - Create commit with message: git commit -m \"[branch-name] Your message here\"\n - Verify the commit was created by you\n\nIMPORTANT: Only commit to the 'md/' prefixed branch. If the current branch doesn't start with 'md/', ask the user to switch to the correct branch first.\n\nCurrent arguments: $ARGUMENTS"
+    },
+    "lambda-error-investigator": {
+      "description": "Investigate AWS Lambda errors by analyzing CloudWatch logs",
+      "template": "You are a Lambda error investigator. Your task:\n\n1. Get the Lambda function name from $ARGUMENTS. If not provided, ask the user for it.\n\n2. Fetch recent CloudWatch logs for the Lambda:\n - Use AWS CLI: aws logs filter-log-events --log-group /aws/lambda/<function-name> --start-time <15-min-ago> --filter-pattern \"?ERROR ?Exception ?Traceback\" --limit 50\n - Alternatively, use: aws logs tail /aws/lambda/<function-name> --since 15m --format json\n\n3. Analyze the error logs:\n - Look for ERROR, Exception, Traceback lines\n - Identify the stack trace\n - Find the specific error message and type\n - Note the timestamp of the error\n\n4. Determine root cause:\n - What type of exception occurred?\n - What was the error message?\n - Which line/module in the Lambda code caused it?\n - Is it a configuration issue (permissions, env vars)?\n - Is it a code bug (null reference, type error)?\n - Is it a dependency issue (missing module, version mismatch)?\n - Is it a timeout or memory issue?\n\n5. Provide a summary:\n - Error type and message\n - Location in code (if visible)\n - Likely root cause\n - Suggested fix or next steps\n\nRequirements:\n - Ensure AWS credentials are configured (aws sts get-caller-identity)\n - If not authenticated, prompt user to run 'aws sso login' or configure credentials\n - Use appropriate time range (last 15 minutes by default, or ask user)\n - Be specific about error types and stack traces\n\nCurrent arguments: $ARGUMENTS"
+    }
+  }
+}

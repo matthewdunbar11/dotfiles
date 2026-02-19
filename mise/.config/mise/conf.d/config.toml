@@ -19,6 +19,9 @@ gh = "latest"
 lazygit = "latest"
 coursier = "latest"
 ripgrep = "latest"
+"npm:claude" = "latest"
+python = "latest"
+"npm:@mariozechner/pi-coding-agent" = "latest"
 
 [settings]
 experimental = true

@@ -103,6 +103,8 @@ source $ZSH/oh-my-zsh.sh
 # alias zshconfig="mate ~/.zshrc"
 # alias ohmyzsh="mate ~/.oh-my-zsh"
 alias ts="tmux-sessionizer"
+alias td="tmux-session-killer"
+alias lg="lazygit"
 alias slack="TERM=xterm-256color slack-term"
 
 source ~/.env
