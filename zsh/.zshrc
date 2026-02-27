@@ -127,3 +127,6 @@ eval "$(mise activate zsh)"
 # Added by LM Studio CLI (lms)
 export PATH="$PATH:/Users/matthew.dunbar/.lmstudio/bin"
 # End of LM Studio CLI section
+
+# opencode
+export PATH=/Users/matthew.dunbar/.opencode/bin:$PATH

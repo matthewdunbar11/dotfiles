@@ -22,6 +22,10 @@ ripgrep = "latest"
 "npm:claude" = "latest"
 python = "latest"
 "npm:@mariozechner/pi-coding-agent" = "latest"
+go = "latest"
+bun = "latest"
+vault = "latest"
+"npm:@github/copilot" = "latest"
 
 [settings]
 experimental = true

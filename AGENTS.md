@@ -139,6 +139,75 @@ If a `Makefile` is added later, enforce:
 
 ---
 
+## OpenCode Plugins
+
+This repository includes custom **opencode providers** located in `opencode/.config/opencode/providers/`.
+
+### Structure
+
+```
+opencode/.config/opencode/
+├── providers/
+│   ├── bedrock-mantle.ts    # AWS Bedrock Mantle provider for Kimi models
+│   └── index.ts             # Provider exports
+├── package.json             # Plugin dependencies
+└── opencode.json            # Provider configuration
+```
+
+### AWS Bedrock Mantle Provider
+
+*Purpose*: Routes Moonshot AI models (Kimi K2.5, Kimi K2 Thinking) through Bedrock's OpenAI-compatible endpoint (`bedrock-mantle.<region>.api.aws`) instead of the standard Converse API.
+
+*Background*: Kimi models on Bedrock have tool call parsing bugs when accessed via the Converse API. This provider uses the bedrock-mantle OpenAI-compatible endpoint which works correctly.
+
+*Features*:
+- Multiple authentication methods (AWS profile, explicit credentials, environment variables, bearer token)
+- SigV4 signing with service name `bedrock-mantle`
+- Automatic model ID extraction (strips `amazon-bedrock/` prefix)
+- Streaming support with usage information
+
+*Supported Models*:
+- `amazon-bedrock/moonshotai.kimi-k2.5`
+- `amazon-bedrock/moonshotai.kimi-k2-thinking`
+
+*Configuration* (in `opencode.json`):
+```json
+{
+  "provider": {
+    "bedrock-mantle": {
+      "npm": "/Users/matthew.dunbar/Code/dotfiles/opencode/.config/opencode/providers/bedrock-mantle.ts",
+      "options": {
+        "region": "us-east-1",
+        "profile": "AWSAdministratorAccess-345777899508"
+      },
+      "models": {
+        "amazon-bedrock/moonshotai.kimi-k2.5": {},
+        "amazon-bedrock/moonshotai.kimi-k2-thinking": {}
+      }
+    }
+  }
+}
+```
+
+*Authentication Methods* (in order of precedence):
+1. **Bearer Token**: Set `bearerToken` in options or `AWS_BEARER_TOKEN_BEDROCK` env var
+2. **AWS Profile**: Set `profile` in options (reads from `~/.aws/credentials` or `~/.aws/config`)
+3. **Explicit Credentials**: Set `accessKeyId` and `secretAccessKey` in options
+4. **Environment Variables**: `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY`
+
+*Dependencies*: Managed via `package.json` in `opencode/.config/opencode/`:
+- `@ai-sdk/openai-compatible` – OpenAI-compatible provider base
+- `@aws-sdk/credential-providers` – AWS credential chain
+- `aws4fetch` – AWS Signature V4 signing
+
+*Load Order*: Providers are loaded automatically at startup from the path specified in `opencode.json`.
+
+*References*:
+- PR #13803: https://github.com/anomalyco/opencode/pull/13803
+- Vercel AI SDK Bedrock Provider: https://github.com/vercel/ai/blob/main/packages/amazon-bedrock/src/bedrock-provider.ts
+
+---
+
 ## Cursor / Copilot Rules
 The repository does **not** contain a `.cursor/` directory or a `.cursorrules` file, nor does it have a `.github/copilot-instructions.md`.  Therefore there are no explicit custom rules for Cursor or GitHub Copilot.  Agents should fall back to the **default** behavior of those tools:
 - Prefer concise suggestions.
