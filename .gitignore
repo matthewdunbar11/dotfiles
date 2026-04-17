@@ -1,3 +1,5 @@
 .env
 /pi/agent/sessions/
 /pi/.pi/agent/sessions
+/pi/.pi/agent/auth.json
+/pi/.pi/agent/models.json
