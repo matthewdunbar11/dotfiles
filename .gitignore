@@ -1,1 +1,3 @@
 .env
+/pi/agent/sessions/
+/pi/.pi/agent/sessions

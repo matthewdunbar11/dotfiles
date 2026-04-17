@@ -2,6 +2,7 @@ cask "font-fira-code-nerd-font"
 brew "git"
 brew "stow"
 brew "mise"
+brew "cocoapods"
 cask "ghostty"
 
 tap "coursier/formulas"
