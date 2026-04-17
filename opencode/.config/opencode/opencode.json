@@ -1,11 +1,64 @@
 {
   "$schema": "https://opencode.ai/config.json",
+  "plugin": ["opencode-cmux"],
+  "mcp": {
+    "figma": {
+      "enabled": true,
+      "type": "remote",
+      "url": "https://mcp.figma.com/mcp",
+      "oauth": {
+        "clientId": "FX21yhjTIjmLbIBg0EIEuh",
+        "clientSecret": "FJuMgUlAKwBMdF8jp4xacvmGv3tSax"
+      }
+    }
+  },
   "provider": {
     "kiro": {
       "name": "Kiro",
       "npm": "@matthewdunbar/kiro",
       "options": {
-        "kiroAuthFileLocation": "/Users/matthew.dunbar/.aws/sso/cache/kiro-auth-token.json"
+        "kiroAuthFileLocation": "~/Library/Application Support/kiro-cli/data.sqlite3"
+      },
+      "models": {
+        "claude-sonnet-4.6": {
+          "name": "Claude Sonnet 4.6",
+          "limit": { "context": 2000000, "output": 64000 },
+          "temperature": true,
+          "reasoning": true,
+          "tool_call": true
+        },
+        "claude-opus-4.6": {
+          "name": "Claude Opus 4.6",
+          "limit": { "context": 2000000, "output": 128000 },
+          "temperature": true,
+          "reasoning": true,
+          "tool_call": true
+        },
+        "claude-haiku-4.5": {
+          "name": "Claude Haiku 4.5",
+          "limit": { "context": 2000000, "output": 64000 },
+          "temperature": true,
+          "reasoning": true,
+          "tool_call": true
+        },
+        "deepseek-3.2": {
+          "name": "DeepSeek 3.2"
+        },
+        "minimax-m2.5": {
+          "name": "Minimax M2.5"
+        },
+        "qwen3-coder-next": {
+          "name": "Qwen3 Coder Next"
+        }
+      }
+    },
+    "kiroGateway": {
+      "npm": "@ai-sdk/openai-compatible",
+      "options": {
+        "baseURL": "http://localhost:8000/v1",
+        "headers": {
+          "Authorization": "Bearer Password1"
+        }
       },
       "models": {
         "claude-sonnet-4.6": {
@@ -14,14 +67,8 @@
         "claude-opus-4.6": {
           "name": "Claude Opus 4.6"
         },
-        "claude-haiku-4.5": {
-          "name": "Claude Haiku 4.5"
-        },
-        "deepseek-3.2": {
-          "name": "DeepSeek 3.2"
-        },
-        "minimax-m2.1": {
-          "name": "Minimax M2.1"
+        "minimax-m2.5": {
+          "name": "Minimax M2.5"
         },
         "qwen3-coder-next": {
           "name": "Qwen3 Coder Next"
@@ -38,7 +85,10 @@
         "zai-org/glm-4.7-flash": {},
         "mlx-community/Step-3.5-Flash-8bit": {},
         "qwen3.5-122b-a10b": {},
-        "qwen3.5-35b-a3b": {}
+        "qwen/qwen3.5-35b-a3b": {},
+        "mistralai/devstral-small-2-2512": {},
+        "google/gemma-4-26b-a4b": {},
+        "qwen/qwen3.5-35b-a3b": {}
       }
     }
   },
@@ -46,12 +96,12 @@
     "touch-stacks": {
       "description": "Update CloudFormation stack files to trigger redeployment",
       "template": "You are a basic file editor to help deploy cloudformation changes. Look at the current git status to see which files have changed in the repo's templates/ directory. Find corresponding files in the stacks/ directory that reference that template. Remove any existing comment at the top of the stack file (e.g., '# Updated for...'), then add a new single-line comment at the top that is super concise (less than 10 words if possible) reflecting the most recent changes to trigger a redeploy.",
-      "model": "github-copilot/gpt-5-mini"
+      "model": "github-copilot/gpt-4o"
     },
     "commit": {
       "description": "Create a git commit with auto-generated or provided message",
       "template": "You are a git commit helper. Your task:\n\n1. First, ensure git config is set:\n - Check if user.name is set: git config user.name\n - Check if user.email is set: git config user.email\n - If either is missing, set them:\n - git config user.name \"Matthew Dunbar\"\n - git config user.email \"matthew.dunbar@lifeway.com\"\n\n2. Run these git commands to gather information:\n - git status (to see changed files)\n - git diff --stat (to see summary of changes)\n - git log -1 --format='%an %ae' (to verify you created the last commit)\n - git branch --show-current (to get current branch name)\n\n3. Determine the commit message:\n - IF the user provided a message (check $ARGUMENTS), use that\n - IF no message provided, analyze the git changes and write a short, concise summary (1-2 sentences) focusing on what changed and why\n\n4. Handle the branch:\n - Get current branch name from git branch --show-current\n - If the current branch starts with 'md/', use it as-is\n - If the current branch doesn't start with 'md/', create a new branch with 'md/' prefix based on the current branch or feature name\n - Create and checkout the new branch: git checkout -b md/<branch-name>\n\n5. Create the commit:\n - Stage all changes: git add .\n - Create commit with message (no branch prefix): git commit -m \"Your message here\"\n - Verify the commit was created by you\n\nCurrent arguments: $ARGUMENTS",
-      "model": "copilot/gpt-5-mini"
+      "model": "github-copilot/gpt-5-mini"
     },
     "lambda-error-investigator": {
       "description": "Investigate AWS Lambda errors by analyzing CloudWatch logs",

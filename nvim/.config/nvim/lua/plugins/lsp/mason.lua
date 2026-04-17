@@ -78,13 +78,21 @@ return {
 				on_attach = disable_builtin_lsp_formatter,
 			})
 
-			vim.lsp.config("gopls", {
-				capabilities = capabilities,
-				on_attach = disable_builtin_lsp_formatter,
-				cmd = { "gopls" },
-				filetypes = { "go", "gomod", "gowork", "gotmpl" },
-				project_root = { "go.work", "go.mod", ".git" },
-			})
+		vim.lsp.config("gopls", {
+			capabilities = capabilities,
+			on_attach = disable_builtin_lsp_formatter,
+			cmd = { "gopls" },
+			filetypes = { "go", "gomod", "gowork", "gotmpl" },
+			project_root = { "go.work", "go.mod", ".git" },
+		})
+
+		vim.lsp.config("rust_analyzer", {
+			capabilities = capabilities,
+			on_attach = disable_builtin_lsp_formatter,
+			cmd = { "rust-analyzer" },
+			filetypes = { "rust" },
+			project_root_files = { "Cargo.toml", "rust-project.json", ".git" },
+		})
 
 			vim.lsp.config("graphql", {
 				capabilities = capabilities,
