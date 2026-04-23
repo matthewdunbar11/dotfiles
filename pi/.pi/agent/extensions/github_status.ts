@@ -927,8 +927,38 @@ Focus on finding the minimal fix needed to make this job pass.`;
 
   ctx.ui.notify(`Requesting fix for: ${jobName}`, "info");
 
-  // Send the message to the agent using the ExtensionAPI
-  pi.sendUserMessage(fixMessage);
+  // Switch to appropriate model for the fix type
+  const originalModel = ctx.getModel();
+  const targetModelId = isMergeConflict
+    ? "anthropic/claude-sonnet-4-20250514"  // Merge conflicts need careful reasoning
+    : "accounts/fireworks/routers/kimi-k2p5-turbo";  // CI failures need speed + code analysis
+
+  try {
+    // Try to switch to the target model
+    const modelSwitched = await pi.setModel(targetModelId as any);
+    if (modelSwitched) {
+      ctx.ui.notify(
+        `Switched to ${isMergeConflict ? "Claude Sonnet" : "Kimi K2.5 Turbo"} for this ${isMergeConflict ? "merge conflict" : "CI failure"} fix`,
+        "info"
+      );
+    }
+
+    // Send the message
+    pi.sendUserMessage(fixMessage);
+
+    // Restore original model after a brief delay (give the agent time to start processing)
+    if (originalModel && modelSwitched) {
+      setTimeout(() => {
+        pi.setModel(originalModel).catch(() => {
+          // Ignore restore errors
+        });
+      }, 1000);
+    }
+  } catch (err) {
+    // If model switching fails, just send the message with current model
+    console.error("[github-status] Failed to switch model:", err);
+    pi.sendUserMessage(fixMessage);
+  }
 }
 
 // ============================================================================
