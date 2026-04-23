@@ -931,10 +931,18 @@ Focus on finding the minimal fix needed to make this job pass.`;
   // CI failures use the current model (no switch needed)
   if (isMergeConflict) {
     const originalModel = ctx.model;
-    const targetModelId = "github-copilot/gpt-5-mini";
 
     try {
-      const modelSwitched = await pi.setModel(targetModelId as any);
+      // Find the target model using the model registry
+      const targetModel = ctx.modelRegistry.find("github-copilot", "gpt-5-mini");
+
+      if (!targetModel) {
+        ctx.ui.notify("GPT-5-mini not available, using current model", "warning");
+        pi.sendUserMessage(fixMessage);
+        return;
+      }
+
+      const modelSwitched = await pi.setModel(targetModel);
       if (modelSwitched) {
         ctx.ui.notify(
           `Switched to GPT-5-mini for merge conflict resolution`,
