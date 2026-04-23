@@ -927,36 +927,38 @@ Focus on finding the minimal fix needed to make this job pass.`;
 
   ctx.ui.notify(`Requesting fix for: ${jobName}`, "info");
 
-  // Switch to appropriate model for the fix type
-  const originalModel = ctx.getModel();
-  const targetModelId = isMergeConflict
-    ? "anthropic/claude-sonnet-4-20250514"  // Merge conflicts need careful reasoning
-    : "accounts/fireworks/routers/kimi-k2p5-turbo";  // CI failures need speed + code analysis
+  // Switch to specialized model for merge conflicts
+  // CI failures use the current model (no switch needed)
+  if (isMergeConflict) {
+    const originalModel = ctx.getModel();
+    const targetModelId = "github-copilot/gpt-5-mini";
 
-  try {
-    // Try to switch to the target model
-    const modelSwitched = await pi.setModel(targetModelId as any);
-    if (modelSwitched) {
-      ctx.ui.notify(
-        `Switched to ${isMergeConflict ? "Claude Sonnet" : "Kimi K2.5 Turbo"} for this ${isMergeConflict ? "merge conflict" : "CI failure"} fix`,
-        "info"
-      );
+    try {
+      const modelSwitched = await pi.setModel(targetModelId as any);
+      if (modelSwitched) {
+        ctx.ui.notify(
+          `Switched to GPT-5-mini for merge conflict resolution`,
+          "info"
+        );
+      }
+
+      // Send the message
+      pi.sendUserMessage(fixMessage);
+
+      // Restore original model after a brief delay
+      if (originalModel && modelSwitched) {
+        setTimeout(() => {
+          pi.setModel(originalModel).catch(() => {
+            // Ignore restore errors
+          });
+        }, 1000);
+      }
+    } catch (err) {
+      console.error("[github-status] Failed to switch model:", err);
+      pi.sendUserMessage(fixMessage);
     }
-
-    // Send the message
-    pi.sendUserMessage(fixMessage);
-
-    // Restore original model after a brief delay (give the agent time to start processing)
-    if (originalModel && modelSwitched) {
-      setTimeout(() => {
-        pi.setModel(originalModel).catch(() => {
-          // Ignore restore errors
-        });
-      }, 1000);
-    }
-  } catch (err) {
-    // If model switching fails, just send the message with current model
-    console.error("[github-status] Failed to switch model:", err);
+  } else {
+    // CI failures - use current model
     pi.sendUserMessage(fixMessage);
   }
 }
