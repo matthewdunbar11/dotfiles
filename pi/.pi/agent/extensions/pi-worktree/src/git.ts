@@ -84,14 +84,24 @@ export async function discoverRepos(pi: ExtensionAPI): Promise<RepoInfo[]> {
     .split("\n")
     .map((e) => e.trim())
     .filter((e) => e.length > 0);
+
+  // Parallel discovery with concurrency limit to avoid overwhelming the system
+  const CONCURRENCY_LIMIT = 10;
   const repos: RepoInfo[] = [];
 
-  for (const entry of entries) {
-    const fullPath = join(codeDir, entry);
-    if (await isGitRepo(pi, fullPath)) {
-      const worktrees = await getWorktrees(pi, fullPath);
-      repos.push({ path: fullPath, name: entry, worktrees });
-    }
+  for (let i = 0; i < entries.length; i += CONCURRENCY_LIMIT) {
+    const batch = entries.slice(i, i + CONCURRENCY_LIMIT);
+    const batchResults = await Promise.all(
+      batch.map(async (entry) => {
+        const fullPath = join(codeDir, entry);
+        if (await isGitRepo(pi, fullPath)) {
+          const worktrees = await getWorktrees(pi, fullPath);
+          return { path: fullPath, name: entry, worktrees };
+        }
+        return null;
+      })
+    );
+    repos.push(...batchResults.filter((r): r is RepoInfo => r !== null));
   }
 
   return repos.sort((a, b) => a.name.localeCompare(b.name));

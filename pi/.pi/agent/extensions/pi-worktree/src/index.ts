@@ -1,24 +1,49 @@
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI, ExtensionCommandContext } from "@mariozechner/pi-coding-agent";
+import { getGlobalClient, disconnectGlobalClient } from "./daemon/client.ts";
 import { worktreeCommand } from "./commands/worktree.ts";
 import { statusCommand } from "./commands/status.ts";
-import { StatusService } from "./status.ts";
-import { getCurrentWorktreePath } from "./git.ts";
-import { startStatusBar, stopStatusBar, getStatusSummary, refreshStatusBar } from "./ui/status-bar.ts";
+import type { SessionStatus } from "./types.ts";
 
 let statusBarEnabled = true;
+let currentStatus: SessionStatus = "idle";
+let client = getGlobalClient();
+
+// Status tracking - write directly via tmux for current session
+async function writeStatus(pi: ExtensionAPI, status: SessionStatus): Promise<void> {
+  const { getCurrentSession } = await import("./tmux.ts");
+  const { getCurrentWorktreePath } = await import("./git.ts");
+  const { setSessionOption } = await import("./tmux.ts");
+  
+  const sessionName = await getCurrentSession(pi);
+  const worktreePath = await getCurrentWorktreePath(pi);
+  
+  if (sessionName && worktreePath) {
+    await setSessionOption(pi, sessionName, "@pi-status", status);
+    await setSessionOption(pi, sessionName, "@pi-lastUpdated", Date.now().toString());
+    await setSessionOption(pi, sessionName, "@pi-worktree", worktreePath);
+    currentStatus = status;
+  }
+}
 
 // Main extension entry point
 export default function (pi: ExtensionAPI) {
-  const statusService = new StatusService(pi);
+  // Connect to daemon (starts it if needed)
+  client.connect().catch((err) => {
+    console.error("[wt] Failed to connect to daemon:", err);
+  });
 
   // Status tracking: session start
   pi.on("session_start", async (_event, ctx) => {
-    const initialized = await statusService.initialize();
-    if (initialized) {
-      const sessionName = await import("./tmux.ts").then((m) => m.getCurrentSession(pi));
+    const { getCurrentSession } = await import("./tmux.ts");
+    const sessionName = await getCurrentSession(pi);
+    
+    // Initialize status in tmux for this session
+    await writeStatus(pi, "idle");
+    
+    if (sessionName) {
       ctx.ui.notify(`Status tracking: ${sessionName}`, "info");
       
-      // Auto-start status bar polling (enabled by default)
+      // Auto-start status bar polling
       if (statusBarEnabled) {
         startStatusBar(pi, ctx);
       }
@@ -27,26 +52,26 @@ export default function (pi: ExtensionAPI) {
 
   // Status tracking: agent starts (user sent prompt)
   pi.on("agent_start", async () => {
-    await statusService.write("busy");
+    await writeStatus(pi, "busy");
   });
 
   // Status tracking: agent ends
   pi.on("agent_end", async () => {
-    await statusService.write("waiting");
+    await writeStatus(pi, "waiting");
   });
 
   // Status tracking: user interacts - transition from waiting to idle
   pi.on("input", async () => {
-    const currentStatus = await statusService.getStatus();
     if (currentStatus === "waiting") {
-      await statusService.write("idle");
+      await writeStatus(pi, "idle");
     }
     return { action: "continue" };
   });
 
-  // Start status bar polling on load (will show notifications when commands run)
-  // Note: Status bar widget display requires command context, so we set it up
-  // but the widget will only appear after first command runs
+  // Cleanup on extension unload
+  pi.on("unload", () => {
+    disconnectGlobalClient();
+  });
 
   // /worktree - full command name
   pi.registerCommand("worktree", {
@@ -89,7 +114,7 @@ export default function (pi: ExtensionAPI) {
       statusBarEnabled = !statusBarEnabled;
       if (statusBarEnabled) {
         startStatusBar(pi, ctx);
-        await refreshStatusBar(pi, ctx);
+        await refreshStatusBar(ctx);
         ctx.ui.notify("Status bar enabled - watching for waiting worktrees", "success");
       } else {
         stopStatusBar(ctx);
@@ -103,8 +128,7 @@ export default function (pi: ExtensionAPI) {
   pi.registerCommand("wt-waiting", {
     description: "Show worktrees waiting for review",
     handler: async (_args, ctx) => {
-      // Refresh and get current status
-      await refreshStatusBar(pi, ctx);
+      await refreshStatusBar(ctx);
       const { waitingCount, waitingRepos, hasWaiting } = getStatusSummary();
       
       if (!hasWaiting) {
@@ -125,4 +149,94 @@ export default function (pi: ExtensionAPI) {
       ctx.ui.setWidget("wt-waiting", lines);
     },
   });
+}
+
+// Status bar state
+let statusBarVisible = false;
+let currentWaitingCount = 0;
+let currentWaitingRepos: string[] = [];
+
+function startStatusBar(pi: ExtensionAPI, ctx: ExtensionCommandContext): void {
+  if (statusBarVisible) return;
+  statusBarVisible = true;
+
+  // Subscribe to waiting count changes from daemon
+  client.onWaitingChange((count, repos) => {
+    currentWaitingCount = count;
+    currentWaitingRepos = repos;
+    updateStatusBarDisplay(ctx, count, repos);
+  });
+
+  // Initial refresh
+  refreshStatusBar(ctx);
+}
+
+function stopStatusBar(ctx?: ExtensionCommandContext): void {
+  statusBarVisible = false;
+  if (ctx) {
+    ctx.ui.setStatus("wt-statusbar", undefined);
+  }
+}
+
+function updateStatusBarDisplay(
+  ctx: ExtensionCommandContext,
+  count: number,
+  repos: string[],
+): void {
+  if (!statusBarVisible) return;
+
+  const theme = ctx.ui.theme;
+
+  if (count === 0) {
+    ctx.ui.setStatus("wt-statusbar", undefined);
+    return;
+  }
+
+  const repoList = repos.slice(0, 3).join(", ");
+  const more = repos.length > 3 ? ` +${repos.length - 3} more` : "";
+  const message = `⚠ ${count} waiting: ${repoList}${more}`;
+  ctx.ui.setStatus("wt-statusbar", theme.fg("warning", message));
+}
+
+export function getStatusSummary(): {
+  waitingCount: number;
+  waitingRepos: string[];
+  hasWaiting: boolean;
+} {
+  return {
+    waitingCount: currentWaitingCount,
+    waitingRepos: [...currentWaitingRepos],
+    hasWaiting: currentWaitingCount > 0,
+  };
+}
+
+async function refreshStatusBar(ctx: ExtensionCommandContext): Promise<void> {
+  try {
+    const statuses = await client.getAllStatuses();
+    let waitingCount = 0;
+    const waitingRepos = new Set<string>();
+
+    // Get repos to map worktrees to repo names
+    const repos = await client.getRepos();
+    const worktreeToRepo = new Map<string, string>();
+    for (const repo of repos) {
+      for (const wt of repo.worktrees) {
+        worktreeToRepo.set(wt.path, repo.name);
+      }
+    }
+
+    for (const { worktreePath, data } of statuses) {
+      if (data.status === "waiting") {
+        waitingCount++;
+        const repoName = worktreeToRepo.get(worktreePath);
+        if (repoName) waitingRepos.add(repoName);
+      }
+    }
+
+    currentWaitingCount = waitingCount;
+    currentWaitingRepos = Array.from(waitingRepos);
+    updateStatusBarDisplay(ctx, waitingCount, currentWaitingRepos);
+  } catch (err) {
+    console.error("[wt] Failed to refresh status bar:", err);
+  }
 }

@@ -1,13 +1,15 @@
 import type { ExtensionAPI, ExtensionCommandContext } from "@mariozechner/pi-coding-agent";
 import { execCommand, getSessionName } from "../utils.ts";
-import { discoverRepos, getCurrentWorktreePath, createBranch, getCurrentCommit, createWorktree as createGitWorktree, getMainBranch } from "../git.ts";
+import { getCurrentWorktreePath, createBranch, getCurrentCommit, createWorktree as createGitWorktree, getMainBranch } from "../git.ts";
 import { attachToSession } from "../tmux.ts";
-import { StatusService } from "../status.ts";
 import { selectRepo } from "../ui/repo-picker.ts";
 import { selectWorktree } from "../ui/worktree-picker.ts";
 import { createWorktreeDialog } from "../ui/dialogs.ts";
+import { getGlobalClient } from "../daemon/client.ts";
 import { homedir } from "node:os";
 import { join } from "node:path";
+
+const client = getGlobalClient();
 
 // Main /wt command handler
 export async function worktreeCommand(
@@ -22,7 +24,9 @@ export async function worktreeCommand(
   }
 
   ctx.ui.notify("Scanning ~/Code for git repositories...", "info");
-  const repos = await discoverRepos(pi);
+  
+  // Use daemon client for fast cached results
+  const repos = await client.getRepos();
 
   if (repos.length === 0) {
     ctx.ui.notify("No git repositories found in ~/Code", "warning");
@@ -48,16 +52,23 @@ export async function worktreeCommand(
 
     worktreePath = newWorktree.path;
     branch = newWorktree.branch;
+    
+    // Refresh daemon's repo cache since we created a new worktree
+    await client.refreshRepos();
   } else {
     worktreePath = worktreeResult.worktree.path;
     branch = worktreeResult.worktree.branch;
   }
 
   // If session was waiting, mark as idle BEFORE switching (so we write to correct session)
-  const statusService = new StatusService(pi);
-  const currentStatus = await statusService.read(worktreePath);
-  if (currentStatus?.status === "waiting") {
-    await statusService.writeToWorktree(worktreePath, "idle");
+  const status = await client.getStatus(worktreePath);
+  if (status?.status === "waiting") {
+    const { setSessionOption } = await import("../tmux.ts");
+    const { getCurrentSession } = await import("../tmux.ts");
+    const sessionName = await getCurrentSession(pi);
+    if (sessionName) {
+      await setSessionOption(pi, sessionName, "@pi-status", "idle");
+    }
   }
 
   // Attach to session

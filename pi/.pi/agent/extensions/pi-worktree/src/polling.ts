@@ -26,29 +26,41 @@ export function startPolling(
       let waitingCount = 0;
       const waitingRepos: string[] = [];
 
+      // Collect all worktrees first for parallel processing
+      const allWorktrees = repos.flatMap(repo => 
+        repo.worktrees.map(wt => ({ ...wt, repoName: repo.name }))
+      );
+
+      // Process status checks in parallel with concurrency limit
+      const CONCURRENCY_LIMIT = 20;
+      for (let i = 0; i < allWorktrees.length; i += CONCURRENCY_LIMIT) {
+        const batch = allWorktrees.slice(i, i + CONCURRENCY_LIMIT);
+        await Promise.all(
+          batch.map(async (worktree) => {
+            const statusData = await statusService.read(worktree.path);
+            const status = statusData?.status ?? null;
+            const prevStatus = lastStatuses.get(worktree.path);
+
+            // Detect changes
+            if (status !== prevStatus) {
+              currentStatuses.set(worktree.path, status);
+              options.onStatusChange?.(worktree.path, prevStatus, status);
+            } else {
+              currentStatuses.set(worktree.path, status);
+            }
+          })
+        );
+      }
+
+      // Count waiting repos after all statuses are collected
       for (const repo of repos) {
         let repoHasWaiting = false;
-
         for (const worktree of repo.worktrees) {
-          const statusData = await statusService.read(worktree.path);
-          const status = statusData?.status ?? null;
-          const prevStatus = lastStatuses.get(worktree.path);
-
-          // Track for waiting count
-          if (status === "waiting") {
+          if (currentStatuses.get(worktree.path) === "waiting") {
             waitingCount++;
             repoHasWaiting = true;
           }
-
-          // Detect changes
-          if (status !== prevStatus) {
-            currentStatuses.set(worktree.path, status);
-            options.onStatusChange?.(worktree.path, prevStatus, status);
-          } else {
-            currentStatuses.set(worktree.path, status);
-          }
         }
-
         if (repoHasWaiting) {
           waitingRepos.push(repo.name);
         }

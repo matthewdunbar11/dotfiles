@@ -1,5 +1,7 @@
 import type { ExtensionAPI, ExtensionCommandContext } from "@mariozechner/pi-coding-agent";
-import { StatusService } from "../status.ts";
+import { getGlobalClient } from "../daemon/client.ts";
+
+const client = getGlobalClient();
 
 // /wt-status command handler
 export async function statusCommand(
@@ -7,14 +9,39 @@ export async function statusCommand(
   ctx: ExtensionCommandContext,
 ): Promise<void> {
   const theme = ctx.ui.theme;
-  const statusService = new StatusService(pi);
 
   try {
-    const statuses = await statusService.getAllStatuses();
+    // Get all statuses from daemon
+    const [statuses, repos] = await Promise.all([
+      client.getAllStatuses(),
+      client.getRepos(),
+    ]);
 
     if (statuses.length === 0) {
       ctx.ui.notify("No tracked pi sessions found in tmux", "info");
       return;
+    }
+
+    // Build worktree -> session name mapping from repos
+    const worktreeToName = new Map<string, string>();
+    for (const repo of repos) {
+      for (const wt of repo.worktrees) {
+        // Derive session name from worktree path
+        const parts = wt.path.split("/");
+        if (wt.path.includes(".worktrees")) {
+          const worktreesIndex = parts.indexOf(".worktrees");
+          if (worktreesIndex >= 0 && parts.length > worktreesIndex + 2) {
+            const repoName = parts[worktreesIndex + 1];
+            const worktreeName = parts[worktreesIndex + 2];
+            worktreeToName.set(wt.path, `${repoName}-${worktreeName}`);
+          }
+        } else if (wt.path.includes("Code")) {
+          const codeIndex = parts.indexOf("Code");
+          if (codeIndex >= 0 && parts.length > codeIndex + 1) {
+            worktreeToName.set(wt.path, parts[codeIndex + 1]);
+          }
+        }
+      }
     }
 
     const lines = [
@@ -34,7 +61,8 @@ export async function statusCommand(
             : s.data.status === "waiting"
               ? "warning"
               : "success";
-        return `  ${theme.fg("text", s.name.padEnd(30))} ${theme.fg(statusColor, s.data.status.padEnd(8))} ${theme.fg("dim", ageStr)}`;
+        const sessionName = worktreeToName.get(s.worktreePath) || s.worktreePath.split("/").pop() || "unknown";
+        return `  ${theme.fg("text", sessionName.padEnd(30))} ${theme.fg(statusColor, s.data.status.padEnd(8))} ${theme.fg("dim", ageStr)}`;
       }),
     ];
 
