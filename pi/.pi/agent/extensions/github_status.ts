@@ -930,7 +930,7 @@ Focus on finding the minimal fix needed to make this job pass.`;
   // Switch to specialized model for merge conflicts
   // CI failures use the current model (no switch needed)
   if (isMergeConflict) {
-    const originalModel = ctx.getModel();
+    const originalModel = ctx.model;
     const targetModelId = "github-copilot/gpt-5-mini";
 
     try {
