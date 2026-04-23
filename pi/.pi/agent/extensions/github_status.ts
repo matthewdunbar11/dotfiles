@@ -1,15 +1,16 @@
 /**
  * GitHub Status Extension
  *
- * Check CI/CD status on the current commit/PR and send fix requests to the agent.
- * Currently supports GitHub Actions; designed to be extensible for additional
- * status check sources (CircleCI, Travis, etc.) in the future.
+ * Shows failing CI/CD checks and merge conflicts for the current commit/PR,
+ * allowing you to quickly identify and request fixes for problems.
+ * Only displays issues (failures, cancellations, merge conflicts) - clean
+ * and pending statuses are filtered out.
  *
  * Commands:
- *   /github-status     - Show GitHub Actions check status and select job to fix
+ *   /github-status     - Show failing checks and merge conflicts
  *
  * Usage:
- *   /github-status     - Open status picker for current commit/PR
+ *   /github-status     - Open status picker with only problem items
  *
  * Requirements:
  *   - gh CLI installed and authenticated
@@ -206,7 +207,7 @@ const githubChecksProvider: StatusSourceProvider = {
         "api",
         `repos/{owner}/{repo}/commits/${commitSha}/check-runs`,
         "--jq",
-        ".check_runs[] | select(.app.slug != "github-actions") | {id, name, status, conclusion, html_url}",
+        `.check_runs[] | select(.app.slug != \"github-actions\") | {id, name, status, conclusion, html_url}`,
       ],
       {
         encoding: "utf8",
@@ -247,6 +248,138 @@ const githubChecksProvider: StatusSourceProvider = {
 };
 
 // ============================================================================
+// Merge Conflict Status Provider
+// ============================================================================
+
+const mergeConflictProvider: StatusSourceProvider = {
+  name: "Merge Conflict Check",
+
+  async isAvailable(): Promise<boolean> {
+    const result = spawnSync("which", ["git"], { encoding: "utf8" });
+    return result.status === 0;
+  },
+
+  async fetchStatus(_commitSha: string, cwd: string): Promise<StatusCheck[]> {
+    // Get current branch name
+    const branchResult = spawnSync(
+      "git",
+      ["rev-parse", "--abbrev-ref", "HEAD"],
+      { encoding: "utf8", cwd }
+    );
+
+    if (branchResult.status !== 0 || !branchResult.stdout) {
+      return [];
+    }
+
+    const currentBranch = branchResult.stdout.trim();
+
+    // Skip if we're on master/main
+    if (currentBranch === "master" || currentBranch === "main") {
+      return [];
+    }
+
+    // Determine default branch (master or main)
+    const defaultBranchResult = spawnSync(
+      "git",
+      ["rev-parse", "--abbrev-ref", "origin/HEAD"],
+      { encoding: "utf8", cwd }
+    );
+
+    let defaultBranch = "master";
+    if (defaultBranchResult.status === 0 && defaultBranchResult.stdout) {
+      const ref = defaultBranchResult.stdout.trim();
+      if (ref.includes("/")) {
+        defaultBranch = ref.split("/").pop() || "master";
+      }
+    } else {
+      // Fallback: check if origin/main exists
+      const mainCheck = spawnSync(
+        "git",
+        ["rev-parse", "--verify", "origin/main"],
+        { encoding: "utf8", cwd }
+      );
+      if (mainCheck.status === 0) {
+        defaultBranch = "main";
+      }
+    }
+
+    // Check for merge conflicts by attempting a merge --no-commit --no-ff
+    // First, fetch the latest default branch
+    spawnSync(
+      "git",
+      ["fetch", "origin", defaultBranch],
+      { encoding: "utf8", cwd }
+    );
+
+    // Check if merge would conflict
+    const mergeCheckResult = spawnSync(
+      "git",
+      ["merge-tree", `origin/${defaultBranch}`, currentBranch],
+      { encoding: "utf8", cwd }
+    );
+
+    if (mergeCheckResult.status !== 0) {
+      // Command failed, try alternative approach
+      // Use git merge --no-commit --no-ff and check exit status
+      // Stash any local changes first
+      const stashResult = spawnSync(
+        "git",
+        ["stash", "push", "-m", "github-status-merge-check"],
+        { encoding: "utf8", cwd }
+      );
+
+      const hadChanges = stashResult.status === 0 && !stashResult.stdout?.includes("No local changes");
+
+      // Try the merge
+      const mergeResult = spawnSync(
+        "git",
+        ["merge", `origin/${defaultBranch}`, "--no-commit", "--no-ff"],
+        { encoding: "utf8", cwd }
+      );
+
+      const hasConflict = mergeResult.status !== 0 ||
+        mergeResult.stdout?.includes("CONFLICT") ||
+        mergeResult.stderr?.includes("CONFLICT");
+
+      // Abort the merge attempt
+      spawnSync("git", ["merge", "--abort"], { encoding: "utf8", cwd });
+
+      // Restore stashed changes if any
+      if (hadChanges) {
+        spawnSync("git", ["stash", "pop"], { encoding: "utf8", cwd });
+      }
+
+      if (hasConflict) {
+        return [{
+          id: `merge-conflict-${currentBranch}`,
+          name: `Merge Conflict with ${defaultBranch}`,
+          status: "failure",
+          conclusion: "merge_conflict",
+          url: undefined,
+          source: { name: "Git", type: "other" },
+        }];
+      }
+    } else {
+      // Check merge-tree output for conflicts
+      const output = mergeCheckResult.stdout || "";
+      if (output.includes("conflict") || output.includes("<<<")) {
+        return [{
+          id: `merge-conflict-${currentBranch}`,
+          name: `Merge Conflict with ${defaultBranch}`,
+          status: "failure",
+          conclusion: "merge_conflict",
+          url: undefined,
+          source: { name: "Git", type: "other" },
+        }];
+      }
+    }
+
+    // No conflicts found - return empty (we only want to show problems)
+    return [];
+  },
+};
+
+// ============================================================================
 // Status Manager (aggregates all sources)
 // ============================================================================
 
@@ -254,6 +387,7 @@ class StatusManager {
   private providers: StatusSourceProvider[] = [
     githubActionsProvider,
     githubChecksProvider,
+    mergeConflictProvider,
   ];
 
   async fetchAllStatus(commitSha: string, cwd: string): Promise<StatusCheck[]> {
@@ -270,11 +404,22 @@ class StatusManager {
       }
     }
 
-    return allChecks;
+    // Filter to only show problems (failures, cancellations, merge conflicts)
+    // Skip success and pending statuses
+    return allChecks.filter((check) =>
+      check.status === "failure" ||
+      check.status === "cancelled" ||
+      check.status === "unknown" ||
+      check.conclusion === "merge_conflict"
+    );
   }
 
   registerProvider(provider: StatusSourceProvider): void {
     this.providers.push(provider);
+  }
+
+  getProviders(): StatusSourceProvider[] {
+    return [...this.providers];
   }
 }
 
@@ -378,47 +523,104 @@ function getStatusColor(
 }
 
 // ============================================================================
-// Status Picker UI
+// Status Picker UI (Reactive - updates as results arrive)
 // ============================================================================
+
+interface PickerItem {
+  value: string;
+  label: string;
+  description: string;
+  check: StatusCheck;
+}
+
+interface LoadingState {
+  providers: Map<string, boolean>;
+  complete: boolean;
+}
 
 async function showStatusPicker(
   ctx: ExtensionCommandContext,
-  statusContext: StatusContext
+  statusContext: StatusContext,
+  loadingState: LoadingState
 ): Promise<StatusCheck | null> {
-  const items = statusContext.checks.map((check) => ({
+  // Mutable items array - can be updated as results arrive
+  let items: PickerItem[] = statusContext.checks.map((check) => ({
     value: check.id,
     label: check.name,
     description: `${getStatusIcon(check.status)} ${check.source.name}`,
     check,
   }));
 
-  if (items.length === 0) {
-    ctx.ui.notify("No status checks found", "info");
-    return null;
-  }
-
   return new Promise((resolve) => {
     ctx.ui.custom<StatusCheck | null>((tui, theme, _kb, done) => {
       let selectedIndex = 0;
-      let filteredItems = [...items];
+      let filteredItems: PickerItem[] = [...items];
       let filterText = "";
       let cachedLines: string[] | undefined;
 
-      function updateFilter(): void {
-        if (!filterText) {
-          filteredItems = [...items];
-        } else {
-          const lower = filterText.toLowerCase();
-          filteredItems = items.filter(
-            (i) =>
-              i.label.toLowerCase().includes(lower) ||
-              i.description.toLowerCase().includes(lower)
-          );
+      // Track last seen check count to detect changes
+      let lastCheckCount = statusContext.checks.length;
+
+      // Function to sync items with current statusContext and refresh display
+      function syncItems(): void {
+        const newItems = statusContext.checks.map((check) => ({
+          value: check.id,
+          label: check.name,
+          description: `${getStatusIcon(check.status)} ${check.source.name}`,
+          check,
+        }));
+
+        // Preserve selection if possible
+        const currentValue = filteredItems[selectedIndex]?.value;
+        items = newItems;
+        updateFilter();
+
+        // Try to restore selection
+        if (currentValue) {
+          const newIndex = filteredItems.findIndex((i) => i.value === currentValue);
+          if (newIndex >= 0) {
+            selectedIndex = newIndex;
+          }
         }
-        selectedIndex = Math.min(selectedIndex, filteredItems.length - 1);
-        if (selectedIndex < 0) selectedIndex = 0;
+
+        lastCheckCount = statusContext.checks.length;
         cachedLines = undefined;
+        tui.requestRender();
       }
+
+      // Poll for changes every 300ms while loading
+      const pollInterval = setInterval(() => {
+        if (statusContext.checks.length !== lastCheckCount || !loadingState.complete) {
+          syncItems();
+        }
+        if (loadingState.complete) {
+          clearInterval(pollInterval);
+        }
+      }, 300);
+
+      // Wrap done to ensure cleanup
+      const originalDone = done;
+      const wrappedDone = (result: StatusCheck | null) => {
+        clearInterval(pollInterval);
+        originalDone(result);
+      };
+      done = wrappedDone;
+
+      function updateFilter(): void {
+      if (!filterText) {
+        filteredItems = [...items];
+      } else {
+        const lower = filterText.toLowerCase();
+        filteredItems = items.filter(
+          (i) =>
+            i.label.toLowerCase().includes(lower) ||
+            i.description.toLowerCase().includes(lower)
+        );
+      }
+      selectedIndex = Math.min(selectedIndex, filteredItems.length - 1);
+      if (selectedIndex < 0) selectedIndex = 0;
+      cachedLines = undefined;
+    }
 
       function render(width: number): string[] {
         if (cachedLines) return cachedLines;
@@ -457,12 +659,29 @@ async function showStatusPicker(
         }
 
         if (filteredItems.length === 0) {
-          add(theme.fg("dim", "  No matching checks"));
+          // Check if still loading
+          const loadingCount = Array.from(loadingState.providers.values()).filter(Boolean).length;
+          if (loadingCount > 0 || !loadingState.complete) {
+            add(theme.fg("warning", "  ○ Scanning for issues..."));
+            const loadingNames = Array.from(loadingState.providers.entries())
+              .filter(([_, loading]) => loading)
+              .map(([name, _]) => name);
+            if (loadingNames.length > 0) {
+              add(theme.fg("dim", `    Checking: ${loadingNames.join(", ")}`));
+            }
+          } else {
+            add(theme.fg("success", "  ✓ All clear! No issues found."));
+          }
         }
 
         lines.push("");
         add(theme.fg("accent", "─".repeat(width)));
-        add(theme.fg("dim", "  Type to filter • ↑↓ navigate • Enter to select • Esc to cancel"));
+        if (loadingState.complete) {
+          add(theme.fg("dim", "  Type to filter • ↑↓ navigate • Enter to select • Esc to cancel"));
+        } else {
+          const remaining = Array.from(loadingState.providers.values()).filter(Boolean).length;
+          add(theme.fg("dim", `  Scanning ${remaining} sources... • ↑↓ navigate • Enter to select • Esc to cancel`));
+        }
         add(theme.fg("accent", "─".repeat(width)));
 
         cachedLines = lines;
@@ -561,57 +780,111 @@ async function githubStatusCommand(
     return;
   }
 
-  // Get commit info
-  ctx.ui.notify("Fetching commit information...", "info");
+  // Get commit info (fast - do first)
   const commit = await getCurrentCommit(ctx.cwd);
   if (!commit) {
     ctx.ui.notify("Failed to get current commit. Are you in a git repository?", "error");
     return;
   }
 
-  // Get PR info
-  ctx.ui.notify("Fetching PR information...", "info");
+  // Get PR info (fast)
   const pr = await getCurrentPR(ctx.cwd);
 
-  // Fetch status checks
-  ctx.ui.notify("Fetching status checks...", "info");
-  const statusManager = new StatusManager();
-  const checks = await statusManager.fetchAllStatus(commit.sha, ctx.cwd);
-
+  // Create mutable status context - starts empty, populates as results arrive
   const statusContext: StatusContext = {
     commit,
     pr,
-    checks,
+    checks: [],
   };
 
-  if (checks.length === 0) {
-    ctx.ui.notify("No status checks found for this commit", "info");
-    return;
-  }
+  // Track loading state
+  const loadingState: LoadingState = {
+    providers: new Map([
+      ["GitHub Actions", true],
+      ["GitHub Checks", true],
+      ["Merge Conflict Check", true],
+    ]),
+    complete: false,
+  };
 
-  // Show picker
-  const selected = await showStatusPicker(ctx, statusContext);
+  // Create status manager for background fetching
+  const statusManager = new StatusManager();
+
+  // Start background fetch immediately - will populate statusContext.checks
+  const fetchPromise = (async () => {
+    for (const provider of statusManager.getProviders()) {
+      if (await provider.isAvailable()) {
+        try {
+          const checks = await provider.fetchStatus(commit.sha, ctx.cwd);
+          // Only add failure/problem checks
+          const problemChecks = checks.filter((check) =>
+            check.status === "failure" ||
+            check.status === "cancelled" ||
+            check.status === "unknown" ||
+            check.conclusion === "merge_conflict"
+          );
+          statusContext.checks.push(...problemChecks);
+        } catch (err) {
+          console.error(`[github-status] Failed to fetch from ${provider.name}:`, err);
+        }
+      }
+      loadingState.providers.set(provider.name, false);
+    }
+    loadingState.complete = true;
+  })();
+
+  // Show picker immediately - it will start empty and populate as results arrive
+  const selected = await showStatusPicker(ctx, statusContext, loadingState);
+
+  // Wait for fetch to complete in case picker closed early
+  await fetchPromise;
 
   if (!selected) {
     ctx.ui.notify("No job selected", "info");
     return;
   }
 
-  // Only allow fixing failed jobs
-  if (selected.status !== "failure" && selected.status !== "cancelled") {
-    ctx.ui.notify(`Job "${selected.name}" is not in a failed state (${selected.status})`, "warning");
-    return;
-  }
-
-  // Send fix message to agent
+  // Build comprehensive fix request
   const jobName = selected.name;
   const prRef = pr ? `PR #${pr.number}` : `commit ${commit.shortSha}`;
-  const fixMessage = `fix job "${jobName}" on ${prRef}`;
+  const prContext = pr
+    ? `PR: ${pr.title} (#${pr.number}) on branch "${pr.branch}"`
+    : `Commit: ${commit.message} (${commit.shortSha})`;
+
+  const fixMessage = `🔧 Fix GitHub Actions Job Failure
+
+**Failed Job:** "${jobName}"
+**Status:** ${selected.status}${selected.conclusion ? ` (${selected.conclusion})` : ""}
+${prContext}
+${selected.url ? `**Job URL:** ${selected.url}` : ""}
+
+Please investigate and fix this failing CI job. Follow these steps:
+
+1. **Fetch logs**: Get the detailed logs for this specific job using 
+   \`gh run view --job=<job-id> --log\` or browse to the job URL above
+
+2. **Analyze the failure**: 
+   - Identify the root cause (test failure, build error, dependency issue, etc.)
+   - Check if it's a transient issue or a real code problem
+   - Look for error messages, stack traces, or configuration issues
+
+3. **Identify the fix**:
+   - If it's a code issue: fix the underlying problem in the codebase
+   - If it's a flaky test: consider retry logic or test improvements
+   - If it's a dependency issue: update lockfiles or dependencies
+   - If it's a configuration issue: check workflow files in .github/workflows/
+
+4. **Verify locally** (if possible):
+   - Try to reproduce the failure locally
+   - Run relevant tests or build commands
+
+5. **Commit the fix** with a clear message explaining what was wrong
+
+Focus on finding the minimal fix needed to make this job pass.`;
 
   ctx.ui.notify(`Requesting fix for: ${jobName}`, "info");
 
-  // Send the message to the agent by simulating user input
-  // This uses the agent's message API
+  // Send the message to the agent
   await ctx.agent.sendMessage(fixMessage);
 }
 
@@ -620,9 +893,9 @@ async function githubStatusCommand(
 // ============================================================================
 
 export default function (pi: ExtensionAPI) {
-  // /github-status - Check GitHub Actions status and request fixes
+  // /github-status - Show failing checks and merge conflicts
   pi.registerCommand("github-status", {
-    description: "Check GitHub Actions status and select a failed job to fix",
+    description: "Show failing CI checks and merge conflicts for the current branch",
     handler: async (_args, ctx) => {
       try {
         await githubStatusCommand(pi, ctx);
