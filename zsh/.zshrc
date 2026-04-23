@@ -104,8 +104,14 @@ source $ZSH/oh-my-zsh.sh
 # alias ohmyzsh="mate ~/.oh-my-zsh"
 alias ts="tmux-sessionizer"
 alias td="tmux-session-killer"
+alias tw="tmux-worktrees"
+# alias tk="tmux-worktree-killer"
 alias lg="lazygit"
 alias slack="TERM=xterm-256color slack-term"
+alias kc="kubectl"
+alias wm="workmux"
+# alias npm="pnpm"
+# alias opencode="coder -a opencode"
 
 source ~/.env
 
@@ -117,7 +123,7 @@ export ARTIFACTORY_KEY=$ARTIFACTORY_KEY
 export ARTIFACTORY_LW_KEY=$ARTIFACTORY_KEY
 
 export SBT_OPTS="-Xmx4G -Xss4M"
-export TERM=tmux-256color
+# export TERM=tmux-256color
 export PATH="$HOME/.local/bin:$PATH"
 export PATH="$PATH:/Users/matthew.dunbar/Library/Application Support/Coursier/bin"
 
@@ -130,3 +136,5 @@ export PATH="$PATH:/Users/matthew.dunbar/.lmstudio/bin"
 
 # opencode
 export PATH=/Users/matthew.dunbar/.opencode/bin:$PATH
+
+unalias gsd 2>/dev/null
