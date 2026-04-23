@@ -254,11 +254,8 @@ class WorktreeDaemon {
           break;
 
         case "getRepos": {
-          // Return cached repos, or wait for refresh if stale
-          const age = Date.now() - this.state.reposLastUpdated;
-          if (age > CACHE_TTL_MS) {
-            await this.refreshRepos();
-          }
+          // Return cached repos immediately - never block on refresh
+          // Background polling keeps cache updated via REPO_POLL_INTERVAL_MS
           sendResponse({ type: "repos", repos: this.state.repos });
           break;
         }
