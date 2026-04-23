@@ -884,8 +884,8 @@ Focus on finding the minimal fix needed to make this job pass.`;
 
   ctx.ui.notify(`Requesting fix for: ${jobName}`, "info");
 
-  // Send the message to the agent
-  await ctx.agent.sendMessage(fixMessage);
+  // Send the message to the agent using the ExtensionAPI
+  pi.sendUserMessage(fixMessage);
 }
 
 // ============================================================================
