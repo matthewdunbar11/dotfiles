@@ -88,7 +88,7 @@
         "qwen/qwen3.5-35b-a3b": {},
         "mistralai/devstral-small-2-2512": {},
         "google/gemma-4-26b-a4b": {},
-        "qwen/qwen3.5-35b-a3b": {}
+        "qwen/qwen3.6-35b-a3b": {}
       }
     }
   },
