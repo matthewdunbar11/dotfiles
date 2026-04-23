@@ -764,7 +764,7 @@ async function showStatusPicker(
 // ============================================================================
 
 async function githubStatusCommand(
-  _pi: ExtensionAPI,
+  pi: ExtensionAPI,
   ctx: ExtensionCommandContext
 ): Promise<void> {
   // Check prerequisites
