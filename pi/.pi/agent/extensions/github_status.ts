@@ -844,14 +844,57 @@ async function githubStatusCommand(
     return;
   }
 
-  // Build comprehensive fix request
+  // Build fix request based on issue type
   const jobName = selected.name;
   const prRef = pr ? `PR #${pr.number}` : `commit ${commit.shortSha}`;
   const prContext = pr
     ? `PR: ${pr.title} (#${pr.number}) on branch "${pr.branch}"`
     : `Commit: ${commit.message} (${commit.shortSha})`;
 
-  const fixMessage = `🔧 Fix GitHub Actions Job Failure
+  // Check if this is a merge conflict
+  const isMergeConflict = selected.conclusion === "merge_conflict";
+
+  const fixMessage = isMergeConflict
+    ? `🔧 Resolve Merge Conflict
+
+**Issue:** ${jobName}
+${prContext}
+
+This branch has merge conflicts that must be resolved before it can be merged.
+
+Please resolve the merge conflicts by following these steps:
+
+1. **Check current branch**: Make sure you're on the correct branch
+   \`git branch --show-current\`
+
+2. **Attempt the merge locally**:
+   \`git fetch origin\`
+   \`git merge origin/master\` (or \`origin/main\` if that's your default)
+
+3. **Identify conflicting files**:
+   \`git status\` will show files with conflicts marked as "Unmerged"
+
+4. **Resolve each conflict**:
+   - Open each conflicting file
+   - Look for conflict markers: \`<<<<<<<\`, \`=======\`, \`>>>>>>>\`
+   - Decide which changes to keep (yours, theirs, or a combination)
+   - Remove the conflict markers
+   - Save the file
+
+5. **Mark as resolved**:
+   \`git add <resolved-file>\` for each file
+   \`git commit\` to complete the merge (use the default message)
+
+6. **Push the resolved branch**:
+   \`git push\`
+
+Tips:
+- If you're unsure about a conflict, check with the author of the conflicting commit
+- Use \`git mergetool\` if you have a preferred merge tool configured
+- You can abort the merge at any time with \`git merge --abort\` if needed
+
+Focus on resolving conflicts while preserving the intended logic from both branches.`
+    : `🔧 Fix GitHub Actions Job Failure
 
 **Failed Job:** "${jobName}"
 **Status:** ${selected.status}${selected.conclusion ? ` (${selected.conclusion})` : ""}
