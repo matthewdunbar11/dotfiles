@@ -112,6 +112,7 @@ alias kc="kubectl"
 alias wm="workmux"
 # alias npm="pnpm"
 # alias opencode="coder -a opencode"
+alias docker="podman"
 
 source ~/.env
 

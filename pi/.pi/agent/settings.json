@@ -1,6 +1,20 @@
 {
-  "lastChangelogVersion": "0.68.0",
-  "defaultProvider": "fireworks",
-  "defaultModel": "accounts/fireworks/routers/kimi-k2p5-turbo",
-  "defaultThinkingLevel": "medium"
+  "lastChangelogVersion": "0.78.0",
+  "defaultProvider": "omlx",
+  "defaultModel": "Qwen3.6-35B-A3B-8bit",
+  "defaultThinkingLevel": "high",
+  "packages": [
+    "git:git@github.com:matthewdunbar/kiro-pi.git@acp-rewrite-2",
+    "npm:pi-permissions",
+    "npm:@capyup/pi-goal"
+  ],
+  "enabledModels": [
+    "kiro/claude-opus-4.6",
+    "kiro/claude-sonnet-4.6",
+    "kiro/claude-haiku-4.5",
+    "unsloth/unsloth/Qwen3.6-27B-MTP-GGUF",
+    "unsloth/unsloth/Qwen3.6-35B-A3B-MTP-GGUF",
+    "ds4/deepseek-v4-flash",
+    "omlx/Qwen3.6-35B-A3B-8bit"
+  ]
 }

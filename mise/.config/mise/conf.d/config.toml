@@ -21,7 +21,7 @@ coursier = "latest"
 ripgrep = "latest"
 "npm:claude" = "latest"
 python = "3.13"
-"npm:@mariozechner/pi-coding-agent" = "latest"
+"npm:@earendil-works/pi-coding-agent" = "latest"
 go = "latest"
 bun = "latest"
 vault = "latest"
@@ -38,6 +38,8 @@ yazi = "latest"
 "npm:cline" = "latest"
 "npm:gsd-pi" = "latest"
 "npm:worktale" = "latest"
+kubectl = "latest"
+"npm:hunkdiff" = "latest"
 
 [settings]
 experimental = true
