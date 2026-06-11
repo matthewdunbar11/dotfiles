@@ -112,7 +112,6 @@ alias kc="kubectl"
 alias wm="workmux"
 # alias npm="pnpm"
 # alias opencode="coder -a opencode"
-alias docker="podman"
 
 source ~/.env
 
@@ -137,5 +136,10 @@ export PATH="$PATH:/Users/matthew.dunbar/.lmstudio/bin"
 
 # opencode
 export PATH=/Users/matthew.dunbar/.opencode/bin:$PATH
+export EDITOR=nvim
 
 unalias gsd 2>/dev/null
+
+# Testcontainers + Podman compatibility
+export TESTCONTAINERS_RYUK_DISABLED=true
+export DOCKER_HOST=unix:///var/run/docker.sock
