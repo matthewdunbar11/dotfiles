@@ -1,6 +1,6 @@
 [tools]
 usage = "latest"
-node = "22"
+node = "24"
 sbt = "latest"
 java = "corretto-17"
 yarn = "latest"
@@ -40,6 +40,7 @@ yazi = "latest"
 "npm:worktale" = "latest"
 kubectl = "latest"
 "npm:hunkdiff" = "latest"
+"npm:@earendil-works/gondolin" = "latest"
 
 [settings]
 experimental = true

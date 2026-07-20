@@ -1,0 +1,17 @@
+{
+  "repos": [
+    {
+      "id": "/Users/matthew.dunbar/Code/contentplatform-epublican-root",
+      "name": "contentplatform-epublican-root",
+      "path": "/Users/matthew.dunbar/Code/contentplatform-epublican-root",
+      "enabled": true,
+      "disabledChecks": []
+    },
+    {
+      "id": "/Users/matthew.dunbar/Code/ministry-grid-backend",
+      "name": "ministry-grid-backend",
+      "path": "/Users/matthew.dunbar/Code/ministry-grid-backend",
+      "enabled": true
+    }
+  ]
+}

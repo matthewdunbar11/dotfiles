@@ -1,7 +1,7 @@
 #!/usr/bin/env zsh
 
 if [[ -z $STOW_FOLDERS ]]; then
-  STOW_FOLDERS="aerospace,bin,ghostty,mise,nvim,opencode,pi,tmux,zsh,zellij"
+  STOW_FOLDERS="aerospace,bin,ghostty,herdr,mise,nvim,pi,tmux,zsh,zellij"
 fi
 
 if [[ -z $DOTFILES ]]; then
@@ -11,6 +11,6 @@ fi
 cd $DOTFILES
 for folder in $(echo $STOW_FOLDERS | sed "s/,/ /g"); do
   stow --delete $folder
-  stow --target=$HOME $folder
+  stow --target=$HOME --adopt $folder
 done
 

@@ -29,8 +29,8 @@ export default async function (pi: ExtensionAPI) {
       contextWindow: 262144,
       maxTokens: 262144,
     }));
-  } catch (err) {
-    console.error("[omlx-url] Failed to fetch models:", err);
+  } catch {
+    // Silently fail — no local server available
   }
 
   pi.registerProvider("omlx", {

@@ -21,7 +21,14 @@ function shortenOutput(output: string): string {
 export default function (pi: ExtensionAPI) {
   // Register the custom message renderer (run messages)
   pi.registerMessageRenderer("run", (message, { expanded }, theme) => {
-    const details = message.details as { exitCode: number; command: string; truncated: boolean; output: string } | undefined;
+    const details = message.details as
+      | {
+          exitCode: number;
+          command: string;
+          truncated: boolean;
+          output: string;
+        }
+      | undefined;
     const output = details?.output ?? "";
     const exitCode = details?.exitCode ?? 0;
     const truncated = details?.truncated ?? false;
@@ -83,19 +90,23 @@ export default function (pi: ExtensionAPI) {
         const displayOutput = shortenOutput(output);
 
         // Inject into message history with custom styling
-        const commandLabel = command.length > 60 ? `${command.slice(0, 57)}...` : command;
+        const commandLabel =
+          command.length > 60 ? `${command.slice(0, 57)}...` : command;
 
-        pi.sendMessage({
-          customType: "run",
-          content: commandLabel,
-          display: true,
-          details: {
-            exitCode: result.code,
-            command,
-            truncated,
-            output: truncated ? displayOutput : output,
+        pi.sendMessage(
+          {
+            customType: "run",
+            content: commandLabel,
+            display: true,
+            details: {
+              exitCode: result.code,
+              command,
+              truncated,
+              output: truncated ? displayOutput : output,
+            },
           },
-        }, { triggerTurn: false });
+          { triggerTurn: false },
+        );
 
         if (result.code !== 0) {
           ctx.ui.notify(`Command failed (exit ${result.code})`, "error");

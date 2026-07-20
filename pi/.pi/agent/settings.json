@@ -1,21 +1,47 @@
 {
-  "lastChangelogVersion": "0.78.0",
-  "defaultProvider": "omlx",
-  "defaultModel": "Qwen3.6-35B-A3B-8bit",
+  "lastChangelogVersion": "0.79.3",
+  "defaultProvider": "kiro",
+  "defaultModel": "gpt-5.6-terra",
   "defaultThinkingLevel": "high",
   "packages": [
     "/Users/matthew.dunbar/Code/kiro-pi",
-    "npm:pi-permissions",
     "npm:@capyup/pi-goal"
   ],
   "extensions": [
     "/Users/matthew.dunbar/Code/tmux-worktrees/extensions/tmux-worktrees-status.ts"
   ],
   "enabledModels": [
-    "kiro/claude-sonnet-4.6",
-    "kiro/claude-haiku-4.5",
-    "omlx/Qwen3.6-35B-A3B-8bit",
-    "omlx/Qwen3.6-27B-MLX-8bit",
-    "omlx/gemma-4-31B-it-qat-4bit"
-  ]
+    "kiro/claude-opus-4.8",
+    "omlx/Ornith-1.0-35B-MLX-oQ8",
+    "kiro/gpt-5.6-sol",
+    "kiro/gpt-5.6-luna",
+    "kiro/gpt-5.6-terra",
+    "kiro/claude-sonnet-5"
+  ],
+  "subagents": {
+    "defaultModel": "omlx/Ornith-1.0-35B-MLX-oQ8",
+    "agentOverrides": {
+      "reviewer": {
+        "disabled": true
+      },
+      "context-builder": {
+        "disabled": true
+      },
+      "delegate": {
+        "disabled": true
+      },
+      "oracle": {
+        "disabled": true
+      },
+      "planner": {
+        "disabled": true
+      },
+      "researcher": {
+        "disabled": true
+      },
+      "scout": {
+        "disabled": true
+      }
+    }
+  }
 }
